@@ -12,6 +12,7 @@ import ffprobeStatic from "ffprobe-static";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import FormData from "form-data";
 import axios from "axios";
+import { json } from "stream/consumers";
 // Thiết lập đường dẫn cho ffmpeg và ffprobe
 // ffmpeg.setFfmpegPath(
 //   "C:\\ffmpeg\\ffmpeg-2025-02-26-git-99e2af4e78-full_build\\bin\\ffmpeg.exe"
@@ -43,7 +44,7 @@ const storage = multer.diskStorage({
     cb(null, UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname); // Giữ nguyên tên gốc
+    cb(null, "music.mp3");
   },
 });
 
@@ -132,22 +133,29 @@ const GenerateSubtitle = async (audioPath) => {
     throw error;
   }
 };
-
+function toBase64(str) {
+  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); // Loại bỏ dấu '=' ở cuối
+}
 const GenerateImage = async (prompt, width, height) => {
   if (!prompt) {
     return res.status(400).json({ error: "Missing prompt parameter" });
   }
-
+  console.log(prompt);
   const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
     prompt
   )}?width=${width}&height=${height}&seed=42&nologo=true`;
-  const filename = `${Date.now()}_${prompt.replace(/[^a-zA-Z0-9]/g, "_")}.jpg`;
+  const filename = `${Date.now()}_${toBase64(prompt)}.jpg`;
   const filepath = path.join(UPLOAD_DIR, filename);
-  const response = await axios.get(url, { responseType: "arraybuffer" });
+  try {
+    const response = await axios.get(url, { responseType: "arraybuffer" });
+    fs.writeFileSync(filepath, response.data);
+    console.log("Đã tạo ảnh", filepath);
 
-  // Lưu ảnh vào thư mục `imagedownload`
-  fs.writeFileSync(filepath, response.data);
-  return filepath;
+    // Lưu ảnh vào thư mục `imagedownload`
+    return { message: null, status: true, filepath: filepath };
+  } catch (error) {
+    return { message: error, status: false, filepath: null };
+  }
 };
 
 const generateSpeech = async (text, voice = "alloy") => {
@@ -213,9 +221,15 @@ app.get("/test", async (req, res) => {
     image: imageurl,
   });
 });
-app.get("/generate-video", async (req, res) => {
+app.post("/generate-video", upload.single("music"), async (req, res) => {
   const width = req.body.width;
   const height = req.body.height;
+  if (!req.file) {
+    return res
+      .status(400)
+      .json({ error: "Vui lòng tải lên một file MP3 nhạc nền." });
+  }
+
   const paragraph = await GenerateText(
     "Tôi có nội dung:" +
       req.body.prompt +
@@ -223,29 +237,50 @@ app.get("/generate-video", async (req, res) => {
   );
   const prompts = await GenerateText(
     paragraph +
-      " . Từ đoạn văn này hãy đưa ra các gợi ý để tạo hình ảnh. đưa ra 6 gợi ý thôi. Mỗi gợi ý bắt từ 1. Trả về các gợi ý bằng tiếng anh."
+      " . Từ đoạn văn này hãy đưa ra các phân cảnh thích hợp. Từ các phân cảnh hãy đưa ra các prompt để tạo hình ảnh,  prompt không quá dài và không có kí tự đặc biệt và các prompt từ ngữ không nhạy cảm, châm biếm, chính trị. Mỗi prompt bắt từ 1. 2. n. . Chỉ phản hồi cho tôi về các prompt bằng tiếng anh."
   );
-  const prompts_cleaned = prompts
-    .replace(/\n/g, " ")
-    .split(/\d+\.\s+/)
-    .filter(Boolean);
+  const prompts_cleaned = prompts.split("\n");
 
-  let list_images_path = await Promise.all(
-    prompts_cleaned.map(async (prompt) => {
-      return await GenerateImage(prompt, width, height);
-    })
-  );
+  // Loại bỏ số thứ tự đầu dòng và các ký tự đặc biệt
+  const prompts_cleaned_format = prompts_cleaned.map((description) => {
+    // Loại bỏ số thứ tự đầu dòng (ví dụ: "1. ", "2. ")
+    const withoutNumber = description.replace(/^\d+\.\s*/, "");
+
+    // Loại bỏ tất cả ký tự đặc biệt, chỉ giữ lại chữ cái, số và khoảng trắng
+    const cleanedText = withoutNumber.replace(/[^a-zA-Z0-9\s]/g, "");
+
+    return cleanedText.trim(); // Loại bỏ khoảng trắng thừa ở đầu/cuối
+  });
+  let list_images_path = [];
+  for (const prompt of prompts_cleaned_format) {
+    const { filepath, message, status } = await GenerateImage(
+      prompt,
+      width,
+      height
+    );
+
+    if (status) {
+      list_images_path.push(filepath);
+    } else {
+      return res.status(400).json({
+        message: "Lỗi ảnh",
+        log: message,
+      });
+    }
+  }
+  console.log(list_images_path);
+  const musicPath = path.join(UPLOAD_DIR, "music.mp3");
 
   let audioPath = await generateSpeech(paragraph);
 
   let durationAudio = await getAudioDuration(audioPath);
   let subtitlePath = await GenerateSubtitle(audioPath);
 
-  const imageDuration = durationAudio / list_images_path.length;
+  const imageDuration = req.body.duration / list_images_path.length;
 
   console.log("⏳ Thời lượng audio:", durationAudio);
   console.log("🖼 Thời lượng mỗi ảnh:", imageDuration);
-
+  console.log("🖼 Số lượng ảnh:", list_images_path.length);
   const imageListFile = path.join(UPLOAD_DIR, "images.txt");
   let imageListContent = list_images_path
     .map((imagePath) => `file '${imagePath}'\nduration ${imageDuration}`)
@@ -255,18 +290,23 @@ app.get("/generate-video", async (req, res) => {
   console.log("✅ File images.txt đã được tạo!");
 
   const tempVideo = path.join(UPLOAD_DIR, `temp_${Date.now()}.mp4`);
-  await createVideoFromImages(imageListFile, tempVideo);
+  await createVideoFromImages(imageListFile, tempVideo, width, height);
 
   // 2️⃣ Ghép âm thanh vào video
-  const videoWithAudio = path.join(OUTPUT_DIR, `video_audio_${Date.now()}.mp4`);
-  await mergeAudio(tempVideo, audioPath, videoWithAudio);
-
-  let finalVideo = videoWithAudio;
 
   // 3️⃣ Burn-in subtitles nếu có file phụ đề
   if (subtitlePath) {
-    finalVideo = path.join(OUTPUT_DIR, `final_video_${Date.now()}.mp4`);
-    await burnSubtitles(videoWithAudio, subtitlePath, finalVideo);
+    const videoWithSub = path.join(
+      OUTPUT_DIR,
+      `video_subtitles_${Date.now()}.mp4`
+    );
+    await burnSubtitles(tempVideo, subtitlePath, videoWithSub);
+
+    const finalVideo = path.join(OUTPUT_DIR, `finalVideo_${Date.now()}.mp4`);
+
+    await mergeMusicAndAudio(videoWithSub, audioPath, musicPath, finalVideo);
+
+    console.log("✅ Tạo thành video có nhạc nền");
   }
 
   res.json({
@@ -275,7 +315,6 @@ app.get("/generate-video", async (req, res) => {
     images_path: list_images_path,
     audio: audioPath,
     subtitle: subtitlePath,
-    finalVideoPath: finalVideo,
   });
 });
 
@@ -290,18 +329,59 @@ function getAudioDuration(audioPath) {
 }
 
 // 📌 Tạo video từ hình ảnh
-function createVideoFromImages(imageListFile, outputVideo) {
+function createVideoFromImages(imageListFile, outputVideo, width, height) {
+  const option = `-vf scale=${width}:${height}`;
   return new Promise((resolve, reject) => {
     ffmpeg()
       .input(imageListFile)
       .inputOptions(["-f concat", "-safe 0"])
-      .outputOptions(["-pix_fmt yuv420p", "-vf scale=1280:720"])
+      .outputOptions(["-pix_fmt yuv420p", option])
       .save(outputVideo)
       .on("end", () => {
         console.log("✅ Video hình ảnh đã tạo xong!");
         resolve();
       })
       .on("error", (err) => reject(err));
+  });
+}
+function mergeMusicAndAudio(videoPath, voicePath, musicPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(videoPath) // Video
+      .input(voicePath) // Giọng đọc
+      .input(musicPath) // Nhạc nền
+      .complexFilter([
+        // Giữ nguyên giọng đọc
+        "[1:a]volume=1[voice]",
+
+        // Giảm âm lượng nhạc nền xuống 20%
+        "[2:a]volume=0.2[music_low]",
+
+        // Lặp nhạc nền nếu ngắn hơn video
+        "[music_low]aloop=loop=-1:size=2e+09[music_loop]",
+        "[music_loop]apad[music_padded]", // Kéo dài nhạc nền nếu cần
+        "[music_padded]atrim=0:duration=999[music_trimmed]", // Cắt nhạc nền đúng độ dài
+
+        // Trộn giọng đọc và nhạc nền (giọng đọc lớn hơn nhạc nền)
+        "[voice][music_trimmed]amix=inputs=2:duration=first:dropout_transition=3[audio_mixed]",
+      ])
+      .outputOptions([
+        "-map 0:v:0", // Giữ nguyên video
+        "-map [audio_mixed]", // Lấy âm thanh đã trộn
+        "-c:v copy", // Giữ nguyên codec video
+        "-c:a aac", // Codec âm thanh
+        "-b:a 192k", // Chất lượng âm thanh
+        "-shortest", // Dừng khi video kết thúc
+      ])
+      .save(outputPath)
+      .on("end", () => {
+        console.log("✅ Video với giọng đọc + nhạc nền đã tạo xong!");
+        resolve();
+      })
+      .on("error", (err) => {
+        console.error("❌ Lỗi khi ghép âm thanh:", err);
+        reject(err);
+      });
   });
 }
 
