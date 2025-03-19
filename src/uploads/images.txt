@@ -1,0 +1,16 @@
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181293800_QSBnb2xkZW4gY2F0IHdpdGggc2hpbnkgZnVyIHNpdHRpbmcgYnkgYSBzdW5ueSB3aW5kb3dzaWxs.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181298419_QSBnb2xkZW4gY2F0IGRyZWFtaWx5IG5hcHBpbmcgd2l0aCBoYWxmY2xvc2VkIGV5ZXMgaW4gdGhlIHN1bmxpZ2h0.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181301280_QSBnb2xkZW4gY2F0IHBlcmtpbmcgdXAgaXRzIGVhcnMgYXQgdGhlIHNjZW50IG9mIGZyZXNoIGZpc2g.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181305096_QSBnb2xkZW4gY2F0IG1vdmluZyBzd2lmdGx5IHRvd2FyZHMgdGhlIHNvdXJjZSBvZiBhIGZpc2h5IHNtZWxs.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181307936_QSBnb2xkZW4gY2F0IHNuaWZmaW5nIGZyZXNoIGZpc2ggdG8gY2hlY2sgaXRzIHF1YWxpdHk.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181310387_QSBnb2xkZW4gY2F0IGVhdGluZyBmaXNoIHNsb3dseSBzYXZvcmluZyBlYWNoIGJpdGU.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181312817_QSBnb2xkZW4gY2F0IGxpY2tpbmcgaXRzIGxpcHMgYWZ0ZXIgYSBzYXRpc2Z5aW5nIG1lYWw.jpg'
+duration 7.5
+file 'D:\trentruong\thuctap\vag-backend\src\uploads\1742181314620_QSBnb2xkZW4gY2F0IHJlc3RpbmcgY29udGVudGVkbHkgaW4gYSB3YXJtIGNvenkgY29ybmVy.jpg'
+duration 7.5

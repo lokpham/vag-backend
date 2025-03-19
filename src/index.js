@@ -233,11 +233,11 @@ app.post("/generate-video", upload.single("music"), async (req, res) => {
   const paragraph = await GenerateText(
     "Tôi có nội dung:" +
       req.body.prompt +
-      `. Hãy viết đoạn văn dựa trên nội dung đó, đoạn văn kéo dài ${req.body.duration} giây, Trả về chữ thôi không cần định dạng gì hết.`
+      `. Hãy viết đoạn văn dựa trên nội dung đó, độ dài đoạn văn phải dài đủ để AI đọc trong vòng ${req.body.duration} giây, Trả về chữ thôi không cần định dạng gì hết.`
   );
   const prompts = await GenerateText(
     paragraph +
-      " . Từ đoạn văn này hãy đưa ra các phân cảnh thích hợp. Từ các phân cảnh hãy đưa ra các prompt để tạo hình ảnh,  prompt không quá dài và không có kí tự đặc biệt và các prompt từ ngữ không nhạy cảm, châm biếm, chính trị. Mỗi prompt bắt từ 1. 2. n. . Chỉ phản hồi cho tôi về các prompt bằng tiếng anh."
+      " . Từ đoạn văn này hãy đưa ra các phân cảnh thích hợp. Từ các phân cảnh hãy đưa ra các prompt để tạo hình ảnh giới hạn là 8 prompt,  prompt không quá dài và không có kí tự đặc biệt và các prompt từ ngữ không nhạy cảm, châm biếm, chính trị. Mỗi prompt bắt từ 1. 2. n. . Chỉ phản hồi cho tôi về các prompt bằng tiếng anh."
   );
   const prompts_cleaned = prompts.split("\n");
 
@@ -251,21 +251,42 @@ app.post("/generate-video", upload.single("music"), async (req, res) => {
 
     return cleanedText.trim(); // Loại bỏ khoảng trắng thừa ở đầu/cuối
   });
+  console.log("Số lượng prompt :", prompts_cleaned_format.length);
   let list_images_path = [];
-  for (const prompt of prompts_cleaned_format) {
-    const { filepath, message, status } = await GenerateImage(
-      prompt,
-      width,
-      height
-    );
+  const maxRetries = 3; // Maximum retry attempts
 
-    if (status) {
-      list_images_path.push(filepath);
-    } else {
-      return res.status(400).json({
-        message: "Lỗi ảnh",
-        log: message,
-      });
+  for (const prompt of prompts_cleaned_format) {
+    let attempts = 0;
+    let success = false;
+
+    while (attempts < maxRetries && !success) {
+      try {
+        const { filepath, message, status } = await GenerateImage(
+          prompt,
+          width,
+          height
+        );
+
+        if (status) {
+          list_images_path.push(filepath);
+          success = true;
+        } else {
+          throw new Error(message);
+        }
+      } catch (error) {
+        attempts++;
+        console.error(
+          `Attempt ${attempts} failed for prompt: ${prompt}`,
+          error.message
+        );
+
+        if (attempts === maxRetries) {
+          return res.status(400).json({
+            message: "Lỗi ảnh sau nhiều lần thử",
+            log: error.message,
+          });
+        }
+      }
     }
   }
   console.log(list_images_path);
@@ -352,7 +373,7 @@ function mergeMusicAndAudio(videoPath, voicePath, musicPath, outputPath) {
       .input(musicPath) // Nhạc nền
       .complexFilter([
         // Giữ nguyên giọng đọc
-        "[1:a]volume=1[voice]",
+        "[1:a]volume=2.0[voice]",
 
         // Giảm âm lượng nhạc nền xuống 20%
         "[2:a]volume=0.2[music_low]",
