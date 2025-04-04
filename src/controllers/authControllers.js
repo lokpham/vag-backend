@@ -6,60 +6,76 @@ import { tokenService } from '../services/tokenService.js';
 
 const register = async (req, res) => {
   try {
+
+    // Kiểm tra các trường bắt buộc
+    const { username, email, password, fullName } = req.body;
+    if (!username || !email || !password || !fullName) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Kiểm tra xem email 
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    // Kiểm tra xem username
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
     // Hash password
-    const salt = await bcrypt.genSalt(10)
-    const hashedPassword = await bcrypt.hash(req.body.password, salt)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create a new User
-    const userNew = await new User({
-    username: req.body.username,
-    email: req.body.email,
-    password: hashedPassword,
-    fullName: req.body.fullName,
-    roles: ['user']
-    })
-    // Save the new User
-    const user = await userNew.save()
-    res.status(201).json(user) // Trả về user nếu thành công
+    const userNew = new User({
+      username,
+      email,
+      password: hashedPassword,
+      fullName,
+      roles: ['user'],
+    });
 
-  } catch (err) { res.status(500).json(err) }
+    // Save the new User
+    const user = await userNew.save();
+    res.status(201).json(user);
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Server error", error: err.message || err.toString() });
+  }
 }
+
 
 const login = async (req, res) => {
   try {
-    // Check user/email
-    const user = await User.findOne({ $or: [{ username: req.body.username }, { email: req.body.email }] })
-    // console.log("User found:", user)
-    if (!user) return res.status(404).json({ message: "User not found" })
+    // Check email
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Check password - so sánh pass
-    const validPassword = await bcrypt.compare(
-      req.body.password,
-      user.password
-    )
-    if (!validPassword) return res.status(401).json({ message: "Invalid password" })
-    // Sign in  
-    if ( user && validPassword ) {
-      // Tạo access/refresh token 
-      const accessToken = tokenService.generateAccessToken(user)
-      const refreshToken = tokenService.generateRefreshToken(user)
+    // Check password 
+    const validPassword = await bcrypt.compare(req.body.password, user.password);
+    if (!validPassword) return res.status(401).json({ message: "Invalid password" });
 
-      // Lưu refresh token vào cookie
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        path: '/',
-        secure: false, //process.env.NODE_ENV === 'production',
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000 
-      }) 
+    // Sign in
+    const accessToken = tokenService.generateAccessToken(user);
+    const refreshToken = tokenService.generateRefreshToken(user);
 
-      // Không trả về password trong response
-      const { password, ...userInfo } = user._doc
-      return res.status(200).json({ ...userInfo, accessToken }) // Lưu refresh token vào cookie
-    } 
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      path: '/',
+      secure: false,
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
-  } catch (err) { res.status(500).json(err)}
-}
+    const { password, ...userInfo } = user._doc;
+    return res.status(200).json({ ...userInfo, accessToken });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message || err.toString() });
+  }
+};
 
 const refreshToken = async (req, res) => {
   try {

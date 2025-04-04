@@ -8,34 +8,47 @@ import { CONNECT_DB } from './config/db.js';
 import { videoRoutes } from './routers/videoRoutes.js';
 import { authRoutes } from './routers/authRoutes.js';
 import { userRoutes } from './routers/userRoutes.js';
+import { errorHandlingMiddleware } from './middlewares/errorHandlingMiddleware.js';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs-extra';
 
 dotenv.config();
-CONNECT_DB(); 
+CONNECT_DB();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(cors());
-app.use(cookieParser()); // Tạo cookies và useCookieParser
-app.use(express.json()); // Nhân request dạng JSON
+// Tạo thư mục /uploads nếu chưa tồn tại
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log('Created uploads directory:', uploadDir);
+}
 
-// Route test
-// app.get('/test', (req, res) => {
-//   res.json({ message: 'Server is running' });
-// });
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use(cookieParser());
+app.use(express.json());
 
-// Router Video
-console.log('Attaching video routes...');
+// Phục vụ file tĩnh từ thư mục /uploads để người dùng có thể xem video tạm thời
+app.use('/uploads', express.static(uploadDir));
+
+// Router
+console.log('Attaching routes...');
 app.use('/api/video', videoRoutes);
-app.use('/api/auth', authRoutes); 
-app.use('/api/user', userRoutes)
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 
-// errorHandeling
+// Middleware xử lý lỗi
+app.use(errorHandlingMiddleware);
+
+// Xử lý route không tìm thấy
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
-
 app.listen(env.PORT, env.HOST, () => {
   console.log(`🚀 Server chạy tại http://${env.HOST}:${env.PORT}`);
 });
-
