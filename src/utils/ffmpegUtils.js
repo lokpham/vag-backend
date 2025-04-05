@@ -62,10 +62,6 @@ export const burnSubtitles = (videoPath, subtitlePath, outputPath) => {
     const formattedVideoPath = path.resolve(videoPath).replace(/\\/g, "/");
     const formattedOutputPath = path.resolve(outputPath).replace(/\\/g, "/");
 
-    console.log("🎬 Đường dẫn file video:", formattedVideoPath);
-    console.log("🎬 Đường dẫn file subtitle:", formattedSubtitlePath);
-    console.log("📂 Đường dẫn file đầu ra:", formattedOutputPath);
-
     ffmpeg(formattedVideoPath)
       .outputOptions([
         `-vf subtitles='${formattedSubtitlePath}'`,
@@ -110,7 +106,7 @@ export const mergeMusicAndAudio = (videoPath, voicePath, musicPath, outputPath) 
           '-map [audio_mixed]',
           '-c:v copy',
           '-c:a aac',
-          '-b:a 128k',
+          '-b:a 192k',
           '-shortest',
         ]);
     } else {
@@ -120,7 +116,7 @@ export const mergeMusicAndAudio = (videoPath, voicePath, musicPath, outputPath) 
           '-map 1:a:0',
           '-c:v copy',
           '-c:a aac',
-          '-b:a 128k',
+          '-b:a 192k',
           '-shortest',
         ]);
     }
