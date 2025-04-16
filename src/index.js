@@ -31,7 +31,7 @@ const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/output", express.static(path.join(__dirname, "output")));
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 const OUTPUT_DIR = path.join(__dirname, "output");
 
@@ -180,11 +180,11 @@ const generateSpeech = async (text, voice = "alloy") => {
 
     // Lưu file MP3 vào thư mục `upload`
     fs.writeFileSync(filepath, response.data);
-    console.log(`✅ File MP3 saved: ${filepath}`);
+    console.log(`File MP3 saved: ${filepath}`);
 
     return filepath; // Trả về đường dẫn file đã lưu
   } catch (error) {
-    console.error("❌ Error generating speech:", error);
+    console.error("Error generating speech:", error);
     throw new Error("Failed to generate speech");
   }
 };
@@ -224,6 +224,10 @@ app.get("/test", async (req, res) => {
 app.post("/generate-video", upload.single("music"), async (req, res) => {
   const width = req.body.width;
   const height = req.body.height;
+  const voice = req.body.voice;
+  const duration = Number(req.body.duration);
+  const duration_speech = duration - 10;
+  const prompt = req.body.prompt;
   if (!req.file) {
     return res
       .status(400)
@@ -232,8 +236,8 @@ app.post("/generate-video", upload.single("music"), async (req, res) => {
 
   const paragraph = await GenerateText(
     "Tôi có nội dung:" +
-      req.body.prompt +
-      `. Hãy viết đoạn văn dựa trên nội dung đó, độ dài đoạn văn phải dài đủ để AI đọc trong vòng ${req.body.duration} giây, Trả về chữ thôi không cần định dạng gì hết.`
+      prompt +
+      `. Hãy viết đoạn văn dựa trên nội dung đó, độ dài đoạn văn phải dài đủ để AI đọc trong vòng ${duration_speech} giây, Trả về chữ thôi không cần định dạng gì hết.`
   );
   const prompts = await GenerateText(
     paragraph +
@@ -292,23 +296,23 @@ app.post("/generate-video", upload.single("music"), async (req, res) => {
   console.log(list_images_path);
   const musicPath = path.join(UPLOAD_DIR, "music.mp3");
 
-  let audioPath = await generateSpeech(paragraph);
+  let audioPath = await generateSpeech(paragraph, voice);
 
   let durationAudio = await getAudioDuration(audioPath);
   let subtitlePath = await GenerateSubtitle(audioPath);
 
   const imageDuration = req.body.duration / list_images_path.length;
 
-  console.log("⏳ Thời lượng audio:", durationAudio);
-  console.log("🖼 Thời lượng mỗi ảnh:", imageDuration);
-  console.log("🖼 Số lượng ảnh:", list_images_path.length);
+  console.log("Thời lượng audio:", durationAudio);
+  console.log("Thời lượng mỗi ảnh:", imageDuration);
+  console.log("Số lượng ảnh:", list_images_path.length);
   const imageListFile = path.join(UPLOAD_DIR, "images.txt");
   let imageListContent = list_images_path
     .map((imagePath) => `file '${imagePath}'\nduration ${imageDuration}`)
     .join("\n");
 
   await fs.writeFile(imageListFile, imageListContent);
-  console.log("✅ File images.txt đã được tạo!");
+  console.log("File images.txt đã được tạo!");
 
   const tempVideo = path.join(UPLOAD_DIR, `temp_${Date.now()}.mp4`);
   await createVideoFromImages(imageListFile, tempVideo, width, height);
@@ -323,20 +327,16 @@ app.post("/generate-video", upload.single("music"), async (req, res) => {
     );
     await burnSubtitles(tempVideo, subtitlePath, videoWithSub);
 
-    const finalVideo = path.join(OUTPUT_DIR, `finalVideo_${Date.now()}.mp4`);
+    const videoName = `finalVideo_${Date.now()}.mp4`;
+    const finalVideo = path.join(OUTPUT_DIR, videoName);
 
     await mergeMusicAndAudio(videoWithSub, audioPath, musicPath, finalVideo);
 
-    console.log("✅ Tạo thành video có nhạc nền");
+    console.log("Tạo thành video có nhạc nền");
+    res.json({
+      videoUrl: `http://localhost:5000/output/${videoName}`,
+    });
   }
-
-  res.json({
-    paragraph: paragraph,
-    prompts: prompts_cleaned,
-    images_path: list_images_path,
-    audio: audioPath,
-    subtitle: subtitlePath,
-  });
 });
 
 // 📌 Lấy độ dài file MP3
@@ -359,7 +359,7 @@ function createVideoFromImages(imageListFile, outputVideo, width, height) {
       .outputOptions(["-pix_fmt yuv420p", option])
       .save(outputVideo)
       .on("end", () => {
-        console.log("✅ Video hình ảnh đã tạo xong!");
+        console.log("Video hình ảnh đã tạo xong!");
         resolve();
       })
       .on("error", (err) => reject(err));
@@ -445,9 +445,9 @@ function burnSubtitles(videoPath, subtitlePath, outputPath) {
     const formattedVideoPath = path.resolve(videoPath).replace(/\\/g, "/");
     const formattedOutputPath = path.resolve(outputPath).replace(/\\/g, "/");
 
-    console.log("🎬 Đường dẫn file video:", formattedVideoPath);
-    console.log("📜 Đường dẫn file phụ đề:", formattedSubtitlePath);
-    console.log("📂 Đường dẫn file đầu ra:", formattedOutputPath);
+    console.log("Đường dẫn file video:", formattedVideoPath);
+    console.log("Đường dẫn file phụ đề:", formattedSubtitlePath);
+    console.log("Đường dẫn file đầu ra:", formattedOutputPath);
 
     ffmpeg(formattedVideoPath)
       .outputOptions(["-vf", `subtitles=${formattedSubtitlePath}`])
@@ -458,7 +458,7 @@ function burnSubtitles(videoPath, subtitlePath, outputPath) {
         reject(err);
       })
       .on("end", () => {
-        console.log("✅ Video có phụ đề đã tạo xong!");
+        console.log("Video có phụ đề đã tạo xong!");
         resolve();
       })
       .run();
