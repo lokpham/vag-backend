@@ -8,6 +8,7 @@ import { CONNECT_DB } from './config/db.js';
 import { videoRoutes } from './routers/videoRoutes.js';
 import { authRoutes } from './routers/authRoutes.js';
 import { userRoutes } from './routers/userRoutes.js';
+import { adminRoutes } from './routers/adminRoutes.js';
 import { errorHandlingMiddleware } from './middlewares/errorHandlingMiddleware.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -28,8 +29,13 @@ if (!fs.existsSync(uploadDir)) {
   console.log('Created uploads directory:', uploadDir);
 }
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
-app.use(cookieParser());
+app.use(cors({ 
+  origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'], 
+  credentials: true 
+}));
+app.use(cookieParser());  
 app.use(express.json());
 
 // Phục vụ file tĩnh từ thư mục /uploads để người dùng có thể xem video tạm thời
@@ -40,12 +46,13 @@ console.log('Attaching routes...');
 app.use('/api/video', videoRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Middleware xử lý lỗi
 app.use(errorHandlingMiddleware);
 
 // Xử lý route không tìm thấy
-app.use((req, res) => {
+  app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 

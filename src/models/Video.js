@@ -1,51 +1,13 @@
-// // Dữ liệu video cuối cùng
-// import { Schema, model } from 'mongoose';
-
-// const VideoSchema = new Schema({
-//   data: {
-//     type: Buffer, // Dữ liệu video dưới dạng Buffer
-//     required: true,
-//   },
-//   filename: {
-//     type: String,
-//     required: true, // Lưu tên file để dễ nhận diện
-//   },
-//   images: [{
-//     type: Schema.Types.ObjectId,
-//     ref: 'Image',
-//     required: true,
-//   }],
-//   audio: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'Audio',
-//     required: true,
-//   },
-//   music: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'Music',
-//     required: true,
-//   },
-//   user: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'User',
-//     required: true,
-//   },
-// }, {
-//   timestamps: true,
-// });
-
-// export default model('Video', VideoSchema);
-
 import { Schema, model } from 'mongoose';
 
 const VideoSchema = new Schema({
   data: {
-    type: Buffer, // Lưu buffer video vào MongoDB
+    type: Buffer,
     required: true,
   },
   filePath: {
-    type: String, // Đường dẫn tạm thời trong /uploads
-    required: false, //
+    type: String,
+    required: false,
   },
   filename: {
     type: String,
@@ -64,10 +26,24 @@ const VideoSchema = new Schema({
     ref: 'Music',
     required: false,
   },
-  subtitle: { type: String }, // Lưu phụ đề
+  subtitle: { 
+    type: String 
+  },
   user: {
     type: Schema.Types.ObjectId,
     ref: 'User',
+    required: true,
+  },
+  generatedText: {
+    type: Schema.Types.ObjectId,
+    ref: 'GeneratedText',
+  },
+  duration: {
+    type: Number, // Duration in seconds
+    required: false,
+  },
+  size: {
+    type: Number, // Size in bytes
     required: true,
   },
 }, {

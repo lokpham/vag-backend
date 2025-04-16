@@ -6,7 +6,6 @@ import { tokenService } from '../services/tokenService.js';
 
 const register = async (req, res) => {
   try {
-
     // Kiểm tra các trường bắt buộc
     const { username, email, password, fullName } = req.body;
     if (!username || !email || !password || !fullName) {
@@ -72,8 +71,13 @@ const login = async (req, res) => {
 
     const { password, ...userInfo } = user._doc;
     return res.status(200).json({ ...userInfo, accessToken });
-  } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message || err.toString() });
+  } catch (error) {
+    console.error("Lỗi đăng nhập:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi đăng nhập",
+      error: error.message || error.toString(),
+    });
   }
 };
 
