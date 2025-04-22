@@ -6,7 +6,6 @@ export const toBase64 = (str) => {
 };
 
 export const GenerateText = async (userPrompt) => {
-  const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
   const payload = {
     model: 'deepseek/deepseek-chat:free',
     messages: [{ role: 'user', content: userPrompt }],
