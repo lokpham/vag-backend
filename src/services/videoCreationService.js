@@ -7,17 +7,36 @@ import {
   mergeMusicAndAudio,
   getAudioDuration,
 } from '../utils/ffmpegUtils.js';
+import Prompt from '../models/Prompt.js';
 
-export default async ({ images, audio, music, width, height, duration }) => {
+export default async ({ images, audio, music, width, height, duration, promptId }) => {
   try {
     if (!music || !music.filePath) {
       throw new Error('Music file is required to create video');
+    }
+    // Change video name 
+    function removeVietnameseAccents(str) {
+      return str.normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+    const prompt = await Prompt.findById(promptId)
+    if (!prompt) {
+      throw new Error('Prompt not found');
     }
 
     const uploadDir = path.join('uploads');
     const tempVideoPath = path.join(uploadDir, `temp_${Date.now()}.mp4`);
     const videoWithSubPath = path.join(uploadDir, `video_subtitles_${Date.now()}.mp4`);
-    const finalVideoPath = path.join(uploadDir, `final_${Date.now()}.mp4`);
+
+    // Xử lý tên file từ prompt
+    const normalizedPrompt = removeVietnameseAccents(prompt.content)
+    .trim()
+    .slice(0, 30) // Tăng độ dài để có tên có ý nghĩa hơn
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .replace(/_+/g, '_') // Loại bỏ nhiều dấu gạch dưới liên tiếp
+
+    const finalVideoPath = path.join(uploadDir, `${normalizedPrompt}_${Date.now()}.mp4`);
 
     // Kiểm tra file đầu vào images, audio, music
     images.forEach((img) => {

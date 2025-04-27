@@ -75,7 +75,7 @@ const getDashboardStats = async (req, res) => {
         },
       },
       {
-        $unwind: "$userInfo", // tách object user từ array
+        $unwind: "$userInfo", 
       },
       {
         $project: {
@@ -93,6 +93,9 @@ const getDashboardStats = async (req, res) => {
         name: topUserAgg[0].name,
         videoCount: topUserAgg[0].videoCount,
       };
+    }
+    else {
+      topUser = [];
     }
 
     res.status(200).json({

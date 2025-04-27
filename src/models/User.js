@@ -38,7 +38,7 @@ const UserSchema = new Schema({
     default: ['user']
   }]
 }, {
-  timestamps: true // Create and update 
+  timestamps: true 
 });
 
 export default model('User', UserSchema);

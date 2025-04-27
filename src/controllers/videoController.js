@@ -94,7 +94,17 @@ export const generateVideo = [
       music.filePath = musicPath; // Lưu tạm filePath để tạo video
 
       // Tạo đoạn văn
-      const paragraphPrompt = `Tôi có nội dung: ${prompt}. Hãy viết đoạn văn dựa trên nội dung đó, độ dài đoạn văn phải dài đủ để AI đọc trong vòng ${duration} giây, Trả về chữ thôi không cần định dạng gì hết.`;
+      // const paragraphPrompt = `Tôi có nội dung: ${prompt}. Hãy viết đoạn văn dựa trên nội dung đó, độ dài đoạn văn phải dài đủ để AI đọc trong vòng ${duration} giây, Trả về chữ thôi không cần định dạng gì hết.`;
+      const estimatedWordCount = Math.round(duration * 3); // Điều chỉnh tốc độ đọc thực tế
+      const paragraphPrompt = `Tôi có nội dung: "${prompt}".
+      Hãy biến đổi nội dung này thành kịch bản video chuyên nghiệp dài khoảng ${estimatedWordCount} từ (để đọc trong ${duration} giây). Kịch bản cần
+      1. Cấu trúc mạch lạc: mở đầu thu hút (20%), phần chính rõ ràng (60%), kết thúc ấn tượng (20%)
+      2. Ngôn ngữ rõ ràng, dễ hiểu khi nghe, tránh câu dài phức tạp
+      3. Tạo cơ hội cho chuyển cảnh tự nhiên mỗi 5-7 giây
+      4. Mô tả những yếu tố thị giác cụ thể để dễ dàng chuyển thành hình ảnh
+      5. Nhịp điệu phù hợp với thời lượng ${duration} giây
+      6. Giọng điệu phù hợp với chủ đề và đối tượng khán giả
+      Chỉ trả về nội dung kịch bản hoàn chỉnh dưới dạng đoạn văn liền mạch. Không bao gồm các chỉ dẫn cảnh quay, thời gian, hoặc bất kỳ thông tin định dạng nào khác. Không thêm tiêu đề, phân đoạn, hoặc bất kỳ ký hiệu nào như '*', '-', ':', '...'. Chỉ trả về văn bản thuần túy của kịch bản.`;
       const paragraph = await generateText(paragraphPrompt);
       const promptDoc = new Prompt({
         content: prompt,
@@ -109,7 +119,7 @@ export const generateVideo = [
       await generatedText.save();
 
       // Tạo image prompts
-      const imagePromptsText = await generateImagePrompts(paragraph);
+      const imagePromptsText = await generateImagePrompts(paragraph, duration);
       const imagePrompts = await Promise.all(
         imagePromptsText.map((desc) =>
           new ImagePrompt({ description: desc, generatedText: generatedText._id }).save()
@@ -165,7 +175,8 @@ export const generateVideo = [
       audio.filePath = audioPath; // Lưu tạm filePath để tạo video
 
       // Tạo video
-      const video = await createVideo({ images, audio, music, width, height, duration });
+      const promptId = promptDoc._id.toString();
+      const video = await createVideo({ images, audio, music, width, height, duration, promptId });
       const videoPath = path.join(uploadDir, video.filename);
       fs.writeFileSync(videoPath, video.data); // Lưu video vào /uploads
 
@@ -264,17 +275,12 @@ export const getAllUserVideo = async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized: User not authenticated' });
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const skip = (page - 1) * limit;
 
     const videos = await Video.find({ user: userId})
       .populate('images')
       // .populate('audio')
       .populate('generatedText')
       .lean()
-      .skip(skip)
-      .limit(limit)
       // .limit(10) // Giới hạn số lượng video trả về
       .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo mới nhất
     
@@ -304,17 +310,19 @@ export const getAllUserVideo = async (req, res) => {
 
 export const downloadVideo = async (req, res) => {
   try {
-    const { videoId } = req.params; // Lấy videoId từ params
-    console.log(`Video not found for ID: ${videoId}`);
+    // Lấy videoId từ params
+    const { videoId } = req.params; 
     
     const video = await Video.findById(videoId);
-    console.log(`Video size: ${video.data.length} bytes`);
     if (!video) return res.status(404).json({ error: 'Video not found' });
 
+    // Render video   
     res.set('Content-Type', 'video/mp4');
+
     res.set('Content-Disposition', `attachment; filename="${video.filename}"`);
-    res.send(video.data); // Gửi buffer video trực tiếp
-    console.log(`Sent video: ${video.filename}`);
+
+    // Gửi buffer video trực tiếp
+    res.send(video.data); 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });

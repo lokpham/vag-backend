@@ -29,30 +29,3 @@ const ImageSchema = new Schema({
 });
 
 export default model('Image', ImageSchema);
-
-// import { Schema, model } from 'mongoose';
-
-// const ImageSchema = new Schema({
-//   filePath: {
-//     type: String,
-//     required: true,
-//   },
-//   filename: {
-//     type: String,
-//     required: true,
-//   },
-//   imagePrompt: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'ImagePrompt',
-//     required: true,
-//   },
-//   user: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'User',
-//     required: true,
-//   },
-// }, {
-//   timestamps: true,
-// });
-
-// export default model('Image', ImageSchema);
