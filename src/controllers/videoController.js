@@ -48,7 +48,7 @@ const checkMultipartRequest = (req, res, next) => {
 
 // Route handler chính để tạo video
 export const generateVideo = [
-  // Middleware để kiểm tra user
+  
   (req, res, next) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'Unauthorized: User not authenticated' });
@@ -76,7 +76,7 @@ export const generateVideo = [
   async (req, res) => {
     try {
       const userId = req.user.id;
-      const { prompt, width = 1024, height = 768, duration } = req.body;
+      const { prompt, width = 1024, height = 768, duration, voice = "alloy" } = req.body;
 
       if (!prompt || !duration) {
         return res.status(400).json({ error: 'Prompt and duration are required' });
@@ -94,8 +94,7 @@ export const generateVideo = [
       music.filePath = musicPath; // Lưu tạm filePath để tạo video
 
       // Tạo đoạn văn
-      // const paragraphPrompt = `Tôi có nội dung: ${prompt}. Hãy viết đoạn văn dựa trên nội dung đó, độ dài đoạn văn phải dài đủ để AI đọc trong vòng ${duration} giây, Trả về chữ thôi không cần định dạng gì hết.`;
-      const estimatedWordCount = Math.round(duration * 3); // Điều chỉnh tốc độ đọc thực tế
+      const estimatedWordCount = Math.round(duration * 3);
       const paragraphPrompt = `Tôi có nội dung: "${prompt}".
       Hãy biến đổi nội dung này thành kịch bản video chuyên nghiệp dài khoảng ${estimatedWordCount} từ (để đọc trong ${duration} giây). Kịch bản cần
       1. Cấu trúc mạch lạc: mở đầu thu hút (20%), phần chính rõ ràng (60%), kết thúc ấn tượng (20%)
@@ -146,7 +145,7 @@ export const generateVideo = [
       );
 
       // Tạo speech và lưu vào /uploads
-      const { data: speechData, filename: speechFilename } = await generateSpeech(paragraph);
+      const { data: speechData, filename: speechFilename } = await generateSpeech(paragraph, voice);
       if (!speechData) {
         throw new Error('Failed to generate speech: No data returned');
       }

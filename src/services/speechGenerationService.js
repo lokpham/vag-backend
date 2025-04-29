@@ -1,5 +1,5 @@
 import { generateSpeech } from '../utils/helper.js';
 
-export default async (text) => {
-  return await generateSpeech(text);
+export default async (text, voice = "alloy") => {
+  return await generateSpeech(text, voice);
 };
