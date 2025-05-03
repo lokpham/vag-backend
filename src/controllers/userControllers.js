@@ -1,6 +1,7 @@
 import { User } from "../models/index.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+// import jwt from "jsonwebtoken";
+import mongoose from 'mongoose';
 
 // Get all users
 const getAllUsers = async (req, res) => {
@@ -33,40 +34,57 @@ const getUserById = async (req, res) => {
   } catch (error) { res.status(500).json(error); }
 }
 
-const getMe = async (req, res) => {
+const getCurrentUser = async (req, res) => {
   try {
+    // Kiểm tra token đã được xác thực và req.user tồn tại
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: 'Không tìm thấy thông tin người dùng trong token'
-      });
-    }
-    
-    const userId = req.user.id;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: "ID người dùng không hợp lệ",
+        message: "Không tìm thấy thông tin người dùng trong token"
       });
     }
 
-    const user = await User.findById(userId).select("-password");
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Không tìm thấy thông tin người dùng' 
+    const userId = req.user.id;
+
+    // Kiểm tra userId có phải là ObjectId hợp lệ không
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: `ID người dùng không hợp lệ: ${userId}. Phải là một ObjectId hợp lệ.`
       });
     }
-    
+
+    // Tìm user bằng email hoặc _id (tối ưu hóa truy vấn)
+    const user = await User.findById(userId)
+      .select("username email fullName roles isActive createdAt updatedAt")
+      .lean(); // Sử dụng lean() để tối ưu hiệu suất (trả về plain JS object thay vì Mongoose document)
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: `Không tìm thấy người dùng với ID: ${userId}`
+      });
+    }
+
+    // Trả về thông tin user
     res.status(200).json({
       success: true,
-      data: user
+      data: {
+        _id: user._id,
+        // username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        roles: user.roles,
+        // isActive: user.isActive,
+        // createdAt: user.createdAt,
+        // updatedAt: user.updatedAt
+      }
     });
   } catch (error) {
-    console.error("Error in getMe:", error);
+    console.error("Error in getCurrentUser:", error);
     res.status(500).json({
       success: false,
-      message: 'Lỗi khi lấy thông tin người dùng',
+      message: "Lỗi khi lấy thông tin người dùng",
       error: error.message || error.toString()
     });
   }
@@ -135,5 +153,5 @@ export const userControllers = {
   updateUser,
   deleteUser,
   getUserById,
-  getMe,
+  getCurrentUser,
 }

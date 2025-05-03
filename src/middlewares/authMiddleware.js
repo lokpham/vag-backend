@@ -20,9 +20,9 @@ const verifyToken = async (req, res, next) => {
         return res.status(403).json({ message: 'Invalid access token' });
       }
       req.user = {
-        id: user.id, //
+        id: user.id,
         roles: user.role,
-      }; // Gắn thông tin user vào req
+      };
       next();
     });
 }
