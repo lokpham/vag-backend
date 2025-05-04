@@ -71,13 +71,13 @@ const getCurrentUser = async (req, res) => {
       success: true,
       data: {
         _id: user._id,
-        // username: user.username,
+        username: user.username,
         email: user.email,
         fullName: user.fullName,
         roles: user.roles,
-        // isActive: user.isActive,
-        // createdAt: user.createdAt,
-        // updatedAt: user.updatedAt
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
       }
     });
   } catch (error) {
