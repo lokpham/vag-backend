@@ -69,16 +69,7 @@ const getCurrentUser = async (req, res) => {
     // Trả về thông tin user
     res.status(200).json({
       success: true,
-      data: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        roles: user.roles,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      }
+      data: user,
     });
   } catch (error) {
     console.error("Error in getCurrentUser:", error);
@@ -133,23 +124,108 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const newUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.status(200).json(newUser);
+    const userId = req.user.id;
+    const {username, fullName, email, currentPassword, newPassword} = req.body;
+
+    const user = await User.findById(userId);
+
+    if(!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      })
+    }
+
+    if(username !== user.username ) {
+      const usernameExists = await User.findOne({ username, _id: { $ne: userId } });
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Username is already taken',
+          field: 'username'
+        });
+      }
+    }
+
+    if(email !== user.email ) {
+      const emailExists = await User.findOne({ email, _id: { $ne: userId } });
+        if (emailExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Email is already associated with another account',
+            field: 'email'
+        });
+      }
+    }
+
+    user.username = username || user.username;
+    user.email = email || user.email;
+    user.fullName = fullName || user.fullName;
+
+    if (currentPassword && newPassword) {
+      // Verify current password
+      const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
+      
+      if (!isPasswordMatch) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is incorrect',
+          field: 'currentPassword'
+        });
+      }
+      
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    await user.save();
+    const updateUser = await User.findById(userId).select('-password')
+
+    return res.status(200).json({
+      success: true,
+      data: updateUser,
+      message: "Profile updated successfully"
+    })
+
   } catch (error) {
-    res.status(400).json(error);
+    console.error('Error updating user profile:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating profile"
+    })
   } 
 }
 // Delete user by ID
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);  
-    res.status(200).json("Delete success");
-  } catch (error) { res.status(500).json(error); }
+    const userId = req.user.id;
+    const user = await User.findByIdAndDelete(userId);
+
+    if(!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Account successfully deleted"
+    })
+
+  } catch (error) {
+    console.error('Error deleting user account:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating profile"
+    })
+  }
 }
 
 export const userControllers = {
   getAllUsers,
-  createUser,
+  createUser, 
   updateUser,
   deleteUser,
   getUserById,

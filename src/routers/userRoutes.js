@@ -6,10 +6,10 @@ const Routes = express.Router();
 
 // GET ALL USERS
 Routes.get('/me', authMiddleware.verifyToken , userControllers.getCurrentUser);
+Routes.put('/update-profile',authMiddleware.verifyToken, userControllers.updateUser);
+Routes.delete('/delete-account',authMiddleware.verifyToken, userControllers.deleteUser);
 Routes.get('/:id', authMiddleware.verifyToken , userControllers.getUserById);
 Routes.get('/', authMiddleware.verifyToken , userControllers.getAllUsers);
 Routes.post('/', userControllers.createUser);
-Routes.put('/:id', userControllers.updateUser);
-Routes.delete('/:id', userControllers.deleteUser);
 
 export const userRoutes = Routes
